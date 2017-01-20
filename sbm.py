@@ -67,6 +67,7 @@ def SBM(p_in=1, p_out=0, big_community=2, small_community=2, directed=False):
     
     G = nx.random_partition_graph([big_community,small_community], p_in=p_in, p_out=p_out, directed=directed)
     A = nx.to_numpy_matrix(G, perms)
+    np.fill_diagonal(A, 1)
 
     truth_setup = [1.0]*big_community+[-1.0]*small_community
     true_label = [truth_setup[i] for i in perms]
@@ -84,4 +85,34 @@ def DATA_SBM(p_in=1, p_out=0, big_community=2, small_community=2, data_points=10
     Data = Data1*data_rep
     
     return Data 
+
+def Spectral_Accuracy(DATA, LABELS):
+    """We will assume the data comes out in in the form that DATA_triple is created"""
+    
+    eigenvectors = np.linalg.eigh(DATA)[1][:,:,0]
+    centroides = [sp.cluster.vq.kmeans(np.expand_dims(eigenvectors[i], 1), k_or_guess=2) for i in xrange(len(DATA))]
+    
+    thresholds = [centroides[j][0][1]+centroides[j][0][0]/2 for j in xrange(len(centroides))]
+
+
+    labels_bool = [np.less(eigenvectors[i], thresholds[i]) for i in xrange(len(thresholds))]
+
+    labels = [labels_bool[i].astype(float)*2-1 for i in xrange(len(thresholds))]
+    labels_flip = [(labels_bool[i].astype(float)*2-1)*-1 for i in xrange(len(thresholds))]
+
+    labels_compare_1 = np.equal(LABELS, labels)
+    labels_compare_2 = np.equal(LABELS, labels_flip)
+
+    labels_accuracy1 = np.mean([labels_compare_1[i].astype(float) for i in xrange(len(thresholds))], axis=1)
+    labels_accuracy2 = np.mean([labels_compare_2[i].astype(float) for i in xrange(len(thresholds))], axis=1)
+
+    labels_accuarcy = np.maximum(labels_accuracy1, labels_accuracy2)
+
+    return np.mean(labels_accuarcy)
+
+def inv(perm):
+    inverse = [0] * len(perm)
+    for i, p in enumerate(perm):
+        inverse[p] = i
+    return inverse
     
